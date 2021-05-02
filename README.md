@@ -6,3 +6,5 @@ npm install
 npm run build
 npm run serve
 ```
+
+![alt text](https://i.imgur.com/QGd20tp.png "Preview")
