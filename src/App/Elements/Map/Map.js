@@ -1,6 +1,6 @@
 "use strict";
 
-const createMap = (branches) => {
+const createMap = () => {
     const uluru = { lat: 41.9499431, lng: 44.7480655 };
     const mapElement = document.getElementById('map');
     const mapStyles = new Array(
@@ -53,48 +53,91 @@ const createMap = (branches) => {
         styles: mapStyles
     };
 
-    return drawMarkers(branches, new google.maps.Map(mapElement, mapOptions));
+    return new google.maps.Map(mapElement, mapOptions);
 }
 
-const drawMarkers = (branches, map) => {
-        let bounds = new google.maps.LatLngBounds();
+const markerIcons = {
+    active: { url: 'https://newstatic.adjarabet.com/static/images/icons/pin-red.svg' },
+    passive: { url: 'https://newstatic.adjarabet.com/static/images/icons/pin-white.svg' }
+};
 
-        branches.forEach((item) => {
-            if (item.location) {
-                const marker = new google.maps.Marker({
-                    position: item.location,
-                    map: map
-                });
+const toggleMarker = (map, marker, focus) => {
 
-                marker.set('id', item.id);
-                // marker.setIcon(this.markerIcons.active);
-                marker.set('key', item.id);
+    if (marker['active']) {
+        marker.setIcon(markerIcons.active);
+        marker.set('active', false);
+    } else {
+        marker.setIcon(markerIcons.passive);
+        marker.set('active', true);
+    }
 
-                if (branches.length > 1) bounds.extend(marker.getPosition());
-
-                // google.maps.event.addListener(marker, 'click', () => {
-                //     this.toggleMarker(marker, item.ngClass[0].key, false);
-                // });
-
-            }
-        });
-
-        if (branches.length > 1) {
-            map.fitBounds(bounds);
-        } else {
-            this.markers.map((markerItem) => {
-                // if (markerItem['id'] === this.activeMarkerId) this.toggleMarker(markerItem, markerItem['key'], true);
-            });
-        }
-        return map;
+    focus ? focusMarker(map, marker) : map;
 }
 
-exports.initMap = (branches) => () => new Promise(res => {
+const focusMarker = (map, marker) => {
+    map.setCenter(marker.getPosition());
+    map.setZoom(15);
+
+    return map;
+}
+
+exports.clearMarkers = (markers) => () => {
+    markers.map((markerItem) => {
+        markerItem.setMap(null);
+    });
+}
+
+exports.initMap = () => new Promise(res => {
     const script = document.createElement('script');
-    script.src = "https://maps.googleapis.com/maps/api/js?libraries=visualization,places,drawing";
+    script.src = "https://maps.googleapis.com/maps/api/js?libraries=visualization,places,drawing&key=AIzaSyC-rij9Ksd5c0K4IuDYwF838Mr9oBt0RFY";
     script.async = true;
     script.defer = true;
-    script.onload = (ev) => res(createMap(branches));
+    script.onload = (ev) => res({ script: script, map: createMap() });
     document.body.appendChild(script);
 })
 
+exports.drawMarkers = (branches) => (activeMarker) => (map) => (props) => {
+    let bounds = new google.maps.LatLngBounds();
+
+    let markers = branches.map((item) => {
+        if (item.location) {
+            const marker = new google.maps.Marker({
+                position: item.location,
+                map: map
+            });
+
+            marker.set('id', item.id);
+            marker.setIcon(markerIcons.active);
+            marker.set('key', item.id);
+
+            if (branches.length > 1) bounds.extend(marker.getPosition());
+
+            if (item.id == activeMarker.value0) toggleMarker(map, marker, true);
+
+            google.maps.event.addListener(marker, 'click', () => {
+                toggleMarker(map, marker, false);
+            });
+            return marker;
+        }
+    });
+
+    if (branches.length > 1) {
+        map.fitBounds(bounds);
+    } else {
+        markers.map((markerItem) => {
+            toggleMarker(map, markerItem, markerItem['key'], true);
+        });
+    }
+
+    return { map: map, markers: markers };
+}
+
+exports.destroy = (script) => () => {
+    document.body.removeChild(script);
+
+    let scripts = document.querySelectorAll("script[src*='maps.googleapis.com/maps-api-v3']");
+
+    for (var i = 0; i < scripts.length; i++) {
+        scripts[i].parentNode.removeChild(scripts[i]);
+    }
+}

@@ -15,3 +15,4 @@ prod/*
 
 .spago
 .cache
+.DS_Store
